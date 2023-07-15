@@ -20,9 +20,13 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 	//JTextField fileExtentionInput = new JTextField(".PNG");
 	JLabel compressionLabel = new JLabel("Quality %: ");
 	JTextField compressionInput = new JTextField("100");
+	JCheckBox transparentCheckbox = new JCheckBox("Transparent background");
+	JButton bgColorButton = new JButton("Background color (JPEG only)");
 	JButton convertButton = new JButton("Export image...");
 	
 	JFileChooser fileChooser = new JFileChooser();
+	
+	Color bgColor = Color.black;
 	
 	String desktopDir = "";
 	File currentFile = null;
@@ -36,14 +40,16 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 		desktopDir = System.getProperty("user.home") + File.separator + "Desktop";
 		fileChooser.setCurrentDirectory(new File(desktopDir));
 		fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-		fileChooser.addChoosableFileFilter(new FindTypeFilter("jpeg", "JPEG Image Type"));
-		fileChooser.addChoosableFileFilter(new FindTypeFilter("jpg", "JPG Image Type"));
 		fileChooser.addChoosableFileFilter(new FindTypeFilter("png", "PNG Image Type"));
+		fileChooser.addChoosableFileFilter(new FindTypeFilter("jpg", "JPG Image Type"));
+		fileChooser.addChoosableFileFilter(new FindTypeFilter("jpeg", "JPEG Image Type"));
+		fileChooser.addChoosableFileFilter(new FindTypeFilter("bmp", "Bitmap Image"));
 		fileChooser.addChoosableFileFilter(new FindTypeFilter("gif", "GIF Animated Image"));
 		fileChooser.addChoosableFileFilter(new FindTypeFilter("webmp", "Web Image Type"));
 		fileChooser.setAcceptAllFileFilterUsed(true);
 		
 		findFileButton.addActionListener(this);
+		bgColorButton.addActionListener(this);
 		convertButton.addActionListener(this);
 		
 		add(title);
@@ -54,6 +60,10 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 		//add(fileExtentionLabel);
 		//add(fileExtentionInput);
 
+		transparentCheckbox.setFocusable(true); //default value
+		add(transparentCheckbox);
+		add(bgColorButton);
+		
 		add(compressionLabel);
 		add(compressionInput);
 		add(convertButton);
@@ -78,6 +88,11 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 					inputStream.close();   
 				}
 			}
+			else if(source == bgColorButton)
+			{
+				//JColorChooser colorPicker = new JColorChooser();
+				bgColor = JColorChooser.showDialog(null, "Pick a background color", bgColor); //bgColor is deafult (aka Black)
+			}
 			else if(source == convertButton)
 			{
 				//ask to find file
@@ -85,17 +100,31 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 				if(fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION)
 				{
 					exportFile = fileChooser.getSelectedFile();
-					JOptionPane.showMessageDialog(null, "Saving image to " + exportFile.getName() + ".");
+					JOptionPane.showMessageDialog(null, "Saved image to " + exportFile.getName() + ".");
 				}
 				
-				String fileExtension = GetFileExtension(exportFile.getName()).get();
+				String fileExtension = GetFileExtension(exportFile.getName()).get().toLowerCase();
 				
 				//export file
 				FileOutputStream outputStream = new FileOutputStream(exportFile);
 				
 				//get rid of transparency
+				int imgType = BufferedImage.TYPE_INT_RGB;
+				
+				//has a transparent background and isnt a JPG
+				if(transparentCheckbox.isSelected() && !(fileExtension == "jpg" || fileExtension == "jpeg"))  //!(fileExtension == "jpg" || fileExtension == "jpeg")
+				{
+					imgType = BufferedImage.TYPE_INT_ARGB;
+					bgColor = new Color(0, 0, 0, 0); //transparent
+
+					ImageIO.write(currentImg, fileExtension, outputStream); //different export method for transparency
+
+					outputStream.close();
+					return;
+				}
+				
 				BufferedImage convertedImg = new BufferedImage(currentImg.getWidth(), currentImg.getHeight(), BufferedImage.TYPE_INT_RGB);
-				convertedImg.createGraphics().drawImage(currentImg, 0, 0, Color.black, null);
+				convertedImg.createGraphics().drawImage(currentImg, 0, 0, bgColor, null);
 				
 				//output
 				Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName(fileExtension);
@@ -114,8 +143,8 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 				
 				//write to the file
 				writer.write(null, new IIOImage(convertedImg, null, null), param);
-				//ImageIO.write(currentImg, fileExtension, outputStream); 
 				
+				imageOutput.close();
 				outputStream.close();
 			}
 		}
