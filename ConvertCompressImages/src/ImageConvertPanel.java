@@ -1,6 +1,8 @@
 import java.io.*;
 
-import javax.imageio.ImageIO;
+import javax.imageio.*;
+import javax.imageio.stream.ImageOutputStream;
+//import javax.imageio.ImageWriter;
 import javax.swing.*;
 import javax.swing.JOptionPane;
 import java.awt.*;
@@ -16,6 +18,8 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 	JButton findFileButton = new JButton("Find file...");
 	//JLabel fileExtentionLabel = new JLabel("Convert to: ");
 	//JTextField fileExtentionInput = new JTextField(".PNG");
+	JLabel compressionLabel = new JLabel("Quality %: ");
+	JTextField compressionInput = new JTextField("100");
 	JButton convertButton = new JButton("Export image...");
 	
 	JFileChooser fileChooser = new JFileChooser();
@@ -49,6 +53,9 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 		//add(fileChooser); //adding it makes it apart of the UI instead of a seperate popup
 		//add(fileExtentionLabel);
 		//add(fileExtentionInput);
+
+		add(compressionLabel);
+		add(compressionInput);
 		add(convertButton);
 	}
 	
@@ -81,9 +88,33 @@ public class ImageConvertPanel extends JPanel implements ActionListener
 					JOptionPane.showMessageDialog(null, "Saving image to " + exportFile.getName() + ".");
 				}
 				
+				String fileExtension = GetFileExtension(exportFile.getName()).get();
+				
 				//export file
 				FileOutputStream outputStream = new FileOutputStream(exportFile);
-				ImageIO.write(currentImg, GetFileExtension(exportFile.getName()).get(), outputStream);
+				
+				//get rid of transparency
+				BufferedImage convertedImg = new BufferedImage(currentImg.getWidth(), currentImg.getHeight(), BufferedImage.TYPE_INT_RGB);
+				convertedImg.createGraphics().drawImage(currentImg, 0, 0, Color.black, null);
+				
+				//output
+				Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName(fileExtension);
+				ImageWriter writer = (ImageWriter) writers.next();
+				
+				ImageOutputStream imageOutput = ImageIO.createImageOutputStream(outputStream);
+				writer.setOutput(imageOutput);
+				
+				
+				//change image parameters
+				ImageWriteParam param = writer.getDefaultWriteParam();
+				param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+				float quality = Float.parseFloat(compressionInput.getText());
+				param.setCompressionQuality(quality / 100); //convert from percent to decimal
+				
+				
+				//write to the file
+				writer.write(null, new IIOImage(convertedImg, null, null), param);
+				//ImageIO.write(currentImg, fileExtension, outputStream); 
 				
 				outputStream.close();
 			}
